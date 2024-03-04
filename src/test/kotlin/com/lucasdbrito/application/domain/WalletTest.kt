@@ -1,6 +1,7 @@
 package com.lucasdbrito.application.domain
 
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -13,7 +14,7 @@ class WalletTest {
 
         assertNotNull(wallet.id)
         assert(wallet.balance == initialBalance)
-        assert(wallet.transactions.size == 0)
+        assert(wallet.transactions?.size == 0)
     }
 
     @Test
@@ -27,7 +28,7 @@ class WalletTest {
 
         assert(wallet.id == uuid)
         assert(wallet.balance == balance)
-        assert(wallet.transactions.size == 1)
+        assert(wallet.transactions?.size == 1)
     }
 
     @Test
@@ -55,7 +56,7 @@ class WalletTest {
 
         val result = wallet.payTransaction(transaction1)
 
-        assertEquals(ResultPayTransaction.InsufficientBalance(), result)
+        assertEquals(PayTransactionOutput.InsufficientBalance(), result)
     }
 
     @Test
@@ -66,7 +67,7 @@ class WalletTest {
         wallet.payTransaction(transaction1)
         val result = wallet.payTransaction(transaction1)
 
-        assertEquals(ResultPayTransaction.DuplicatedTransaction(), result)
+        assertEquals(PayTransactionOutput.DuplicatedTransaction(), result)
     }
 
     @Test
@@ -76,7 +77,46 @@ class WalletTest {
 
         val result = wallet.payTransaction(transaction1)
 
-        assertEquals(ResultPayTransaction.Success(Unit), result)
-        assertEquals(1, wallet.transactions.size)
+        assertEquals(PayTransactionOutput.Success(Unit), result)
+        assertEquals(1, wallet.transactions?.size)
+    }
+
+    @Test
+    fun shouldReturnInvalidDateRangeErrorWhenGetTransactions() {
+        val wallet = Wallet.create(100f)
+
+        val today = LocalDate.now()
+        val yesterday = LocalDate.now().minusDays(1)
+
+        val result = wallet.getTransactions(today, yesterday)
+
+        assertEquals(GetTransactionsOutput.InvalidDateRange(), result)
+    }
+
+    @Test
+    fun shouldReturnVeryLargeDateRangeErrorWhenGetTransactions() {
+        val wallet = Wallet.create(100f)
+
+        val today = LocalDate.now()
+        val over90DaysAgo = LocalDate.now().minusDays(95)
+
+        val result = wallet.getTransactions(over90DaysAgo, today)
+
+        assertEquals(GetTransactionsOutput.VeryLargeDateRange(), result)
+    }
+
+    @Test
+    fun shouldReturnWalletTransactionsSuccessfully() {
+        val tomorrow = LocalDate.now().plusDays(1)
+        val yesterday = LocalDate.now().minusDays(1)
+
+        val wallet = Wallet.create(100f)
+        val transaction = Transaction.create(100f, TransactionTypes.PIX)
+
+        wallet.payTransaction(transaction)
+
+        val result = wallet.getTransactions(yesterday, tomorrow)
+
+        assertEquals(GetTransactionsOutput.Success(Unit), result)
     }
 }

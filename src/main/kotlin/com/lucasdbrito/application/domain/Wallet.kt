@@ -1,20 +1,35 @@
 package com.lucasdbrito.application.domain
 
+import java.time.LocalDate
+import java.time.Period
 import java.util.UUID
 
-sealed class ResultPayTransaction<out T> {
-    data class Success<out T>(val value: T) : ResultPayTransaction<T>()
+sealed class PayTransactionOutput<out T> {
+    data class Success<out T>(val value: T) : PayTransactionOutput<T>()
     data class DuplicatedTransaction(
         val name: String = "DUPLICATED_TRANSACTION",
         val errorMessage: String = "Already exists a transaction with this id in the wallet"
     ) :
-        ResultPayTransaction<Nothing>()
-
+        PayTransactionOutput<Nothing>()
     data class InsufficientBalance(
         val name: String = "INSUFFICIENT_BALANCE",
         val errorMessage: String = "The wallet don't have enough balance to complete this transaction"
     ) :
-        ResultPayTransaction<Nothing>()
+        PayTransactionOutput<Nothing>()
+}
+
+sealed class GetTransactionsOutput<out T> {
+    data class Success<out T>(val value: T) : GetTransactionsOutput<T>()
+    data class InvalidDateRange(
+        val name: String = "INVALID_DATE_RANGE",
+        val errorMessage: String = "The start date must be before the end date"
+    ) :
+        GetTransactionsOutput<Nothing>()
+    data class VeryLargeDateRange(
+        val name: String = "VERY_LARGE_DATE_RANGE",
+        val errorMessage: String = "The date range must be less than or equal 90 days"
+    ) :
+        GetTransactionsOutput<Nothing>()
 }
 
 sealed class ResultAddBalance<out T> {
@@ -30,11 +45,11 @@ sealed class ResultAddBalance<out T> {
 class Wallet private constructor(
     var id: UUID,
     balance: Float,
-    transactions: MutableSet<Transaction>
+    transactions: MutableSet<Transaction>?
 ) : Domain() {
     var balance: Float = balance
         private set
-    var transactions: MutableSet<Transaction> = transactions
+    var transactions: MutableSet<Transaction>? = transactions
         private set
 
     companion object Factory {
@@ -59,21 +74,33 @@ class Wallet private constructor(
         return ResultAddBalance.Success(Unit)
     }
 
-    fun payTransaction(transaction: Transaction): ResultPayTransaction<Unit> {
-        val duplicatedTransaction = transactions.find { it.id == transaction.id }
+    fun payTransaction(transaction: Transaction): PayTransactionOutput<Unit> {
+        val duplicatedTransaction = transactions?.find { it.id == transaction.id }
 
-        if (duplicatedTransaction != null) return ResultPayTransaction.DuplicatedTransaction()
+        if (duplicatedTransaction != null) return PayTransactionOutput.DuplicatedTransaction()
 
-        this.transactions.add(transaction)
+        this.transactions?.add(transaction)
 
         if (this.balance < transaction.value) {
             transaction.cancel()
-            return ResultPayTransaction.InsufficientBalance()
+            return PayTransactionOutput.InsufficientBalance()
         }
 
         transaction.approve()
         this.balance -= transaction.value
 
-        return ResultPayTransaction.Success(Unit)
+        return PayTransactionOutput.Success(Unit)
+    }
+
+    fun getTransactions(startDate: LocalDate, endDate: LocalDate): GetTransactionsOutput<Unit> {
+        if(endDate < startDate) return GetTransactionsOutput.InvalidDateRange()
+
+        val diffDatesPeriod: Period = Period.between(startDate, endDate)
+
+        val diffDates: Double = diffDatesPeriod.months * 30.44 + diffDatesPeriod.days
+
+        if(diffDates >= 90) return GetTransactionsOutput.VeryLargeDateRange()
+
+        return GetTransactionsOutput.Success(Unit)
     }
 }
