@@ -1,20 +1,30 @@
-package com.example.demo
+package com.lucasdbrito.application.domain
 
 import java.util.UUID
 
-sealed class Result<out T> {
-    data class Success<out T>(val value: T) : Result<T>()
+sealed class ResultPayTransaction<out T> {
+    data class Success<out T>(val value: T) : ResultPayTransaction<T>()
     data class DuplicatedTransaction(
         val name: String = "DUPLICATED_TRANSACTION",
         val errorMessage: String = "Already exists a transaction with this id in the wallet"
     ) :
-        Result<Nothing>()
+        ResultPayTransaction<Nothing>()
 
     data class InsufficientBalance(
         val name: String = "INSUFFICIENT_BALANCE",
         val errorMessage: String = "The wallet don't have enough balance to complete this transaction"
     ) :
-        Result<Nothing>()
+        ResultPayTransaction<Nothing>()
+}
+
+sealed class ResultAddBalance<out T> {
+    data class Success<out T>(val value: T) : ResultAddBalance<T>()
+
+    data class InvalidValue(
+        val name: String = "INVALID_VALUE",
+        val errorMessage: String = "Can't add negative values to balance"
+    ) :
+        ResultAddBalance<Nothing>()
 }
 
 class Wallet private constructor(
@@ -42,25 +52,28 @@ class Wallet private constructor(
         }
     }
 
-    fun addBalance(value: Float) {
+    fun addBalance(value: Float): ResultAddBalance<Unit> {
+        if (value < 0) return ResultAddBalance.InvalidValue()
+
         this.balance += value
+        return ResultAddBalance.Success(Unit)
     }
 
-    fun payTransaction(transaction: Transaction): Result<Unit> {
+    fun payTransaction(transaction: Transaction): ResultPayTransaction<Unit> {
         val duplicatedTransaction = transactions.find { it.id == transaction.id }
 
-        if (duplicatedTransaction != null) return Result.DuplicatedTransaction()
+        if (duplicatedTransaction != null) return ResultPayTransaction.DuplicatedTransaction()
 
         this.transactions.add(transaction)
 
         if (this.balance < transaction.value) {
             transaction.cancel()
-            return Result.InsufficientBalance()
+            return ResultPayTransaction.InsufficientBalance()
         }
 
         transaction.approve()
         this.balance -= transaction.value
 
-        return Result.Success(Unit)
+        return ResultPayTransaction.Success(Unit)
     }
 }

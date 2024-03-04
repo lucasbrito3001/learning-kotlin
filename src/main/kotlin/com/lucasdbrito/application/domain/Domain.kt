@@ -1,4 +1,4 @@
-package com.example.demo
+package com.lucasdbrito.application.domain
 
 import java.util.UUID
 

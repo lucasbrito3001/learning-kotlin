@@ -1,4 +1,4 @@
-package com.example.demo
+package com.lucasdbrito.application.domain
 
 import java.util.UUID
 
@@ -15,15 +15,11 @@ class Transaction private constructor(
     companion object Factory {
         fun create(value: Float, type: TransactionTypes): Transaction {
             val uuid = generateUUID()
-            val transaction = Transaction(uuid, value, type, TransactionStatuses.PENDING)
-
-            return transaction
+            return Transaction(uuid, value, type, TransactionStatuses.PENDING)
         }
 
         fun instance(id: UUID, value: Float, type: TransactionTypes, status: TransactionStatuses): Transaction {
-            val transaction = Transaction(id, value, type, TransactionStatuses.PENDING)
-
-            return transaction
+            return Transaction(id, value, type, status)
         }
     }
 
